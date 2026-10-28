@@ -55,8 +55,18 @@ async function SettingsContent() {
     throw new Error("加载扩展配对记录失败，请确认阶段 7 迁移已执行。");
   }
 
+  const metadataUsername =
+    typeof user.user_metadata?.username === "string"
+      ? user.user_metadata.username.trim()
+      : "";
+  const metadataDisplayName =
+    typeof user.user_metadata?.display_name === "string"
+      ? user.user_metadata.display_name.trim()
+      : "";
   const displayName =
     profile?.display_name?.trim() ||
+    metadataDisplayName ||
+    metadataUsername ||
     user.email?.split("@")[0] ||
     "新读者";
 

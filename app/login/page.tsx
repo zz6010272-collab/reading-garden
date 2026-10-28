@@ -8,6 +8,10 @@ import { ArrowRight, BookOpenText, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import {
+  usernameToVirtualEmail,
+  validateUsername,
+} from "@/lib/auth/username";
 
 const NETWORK_ERROR_MESSAGE =
   "网络连接异常：请检查网络环境，或尝试开启代理/切换热点";
@@ -34,11 +38,11 @@ function readableSignInError(message: string) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("invalid login credentials")) {
-    return "邮箱或密码不正确，请重新输入。";
+    return "用户名或密码不正确，请重新输入。";
   }
 
   if (normalized.includes("email not confirmed")) {
-    return "邮箱尚未验证，请先查收验证邮件。";
+    return "当前 Supabase 项目启用了邮箱确认，用户名登录不可用。请在 Supabase Auth 设置中关闭 Confirm email。";
   }
 
   if (normalized.includes("rate limit") || normalized.includes("too many")) {
@@ -50,20 +54,28 @@ function readableSignInError(message: string) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const usernameError = validateUsername(username);
+
+    if (usernameError) {
+      setErrorMessage(usernameError);
+      return;
+    }
+
     setErrorMessage(null);
     setIsSubmitting(true);
 
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: usernameToVirtualEmail(username),
         password,
       });
 
@@ -98,7 +110,7 @@ export default function LoginPage() {
           接着读下一页。
         </h1>
         <p className="mt-5 max-w-sm text-sm leading-7 text-[#6e7267]">
-          登录后可以继续整理书籍、摘录和感想。当前阶段只接入账户认证，书籍与笔记仍使用演示数据。
+          登录后可以继续整理书籍、摘录和感想，所有内容只属于你的账户。
         </p>
         <blockquote className="mt-12 border-l border-[#b8b1a1] pl-5 font-serif text-lg leading-8 text-[#5d6358]">
           “阅读不是为了离开生活，而是为了更清楚地回来。”
@@ -113,20 +125,20 @@ export default function LoginPage() {
           登录拾页
         </h1>
         <p className="mt-3 text-sm leading-6 text-[#777a70]">
-          使用邮箱和密码进入你的阅读空间。
+          使用用户名和密码进入你的阅读空间。
         </p>
 
         <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
           <label className="block space-y-2">
-            <span className="text-sm text-[#545a4f]">邮箱</span>
+            <span className="text-sm text-[#545a4f]">用户名</span>
             <Input
-              type="email"
-              name="email"
-              autoComplete="email"
+              type="text"
+              name="username"
+              autoComplete="username"
               required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="请输入用户名（字母、数字、下划线）"
               className="h-10 border-[#d8d2c4] bg-[#fdfbf6]"
             />
           </label>

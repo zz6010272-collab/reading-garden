@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { BookOpenText, Menu, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { getAuthDisplayName } from "@/lib/auth/username";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
@@ -97,7 +98,7 @@ export function NavBar() {
     }
   }
 
-  const emailPrefix = user?.email?.split("@")[0] ?? "已登录用户";
+  const displayName = getAuthDisplayName(user);
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#ded8ca]/90 bg-[#faf8f3]/95 backdrop-blur-sm">
@@ -142,7 +143,7 @@ export function NavBar() {
                 aria-hidden="true"
               />
               <span className="max-w-32 truncate text-sm text-[#6d7167]">
-                {emailPrefix}
+                {displayName}
               </span>
               <Button
                 type="button"
@@ -219,7 +220,7 @@ export function NavBar() {
                       className="size-2 rounded-full bg-[#8a9a7c]"
                       aria-hidden="true"
                     />
-                    {emailPrefix}
+                    {displayName}
                   </div>
                   <Button
                     type="button"

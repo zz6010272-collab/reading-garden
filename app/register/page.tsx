@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { BookOpenText, LoaderCircle, MailCheck } from "lucide-react";
+import { BookOpenText, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import {
+  normalizeUsername,
+  usernameToVirtualEmail,
+  validateUsername,
+} from "@/lib/auth/username";
 
 const NETWORK_ERROR_MESSAGE =
   "网络连接异常：请检查网络环境，或尝试开启代理/切换热点";
@@ -34,7 +39,7 @@ function readableSignUpError(message: string) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("already registered")) {
-    return "该邮箱已注册，请直接登录。";
+    return "该用户名已被注册，请直接登录。";
   }
 
   if (normalized.includes("password should be at least")) {
@@ -50,23 +55,37 @@ function readableSignUpError(message: string) {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const usernameError = validateUsername(username);
+
+    if (usernameError) {
+      setErrorMessage(usernameError);
+      return;
+    }
+
+    const normalizedUsername = normalizeUsername(username);
+    const virtualEmail = usernameToVirtualEmail(normalizedUsername);
     setErrorMessage(null);
-    setSuccessMessage(null);
     setIsSubmitting(true);
 
     try {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: virtualEmail,
         password,
+        options: {
+          data: {
+            username: normalizedUsername,
+            display_name: normalizedUsername,
+          },
+        },
       });
 
       if (error) {
@@ -80,9 +99,21 @@ export default function RegisterPage() {
         return;
       }
 
-      setSuccessMessage(
-        "注册成功。请查收邮箱并完成验证，然后返回这里登录。",
-      );
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: virtualEmail,
+          password,
+        });
+
+      if (signInError || !signInData.session) {
+        setErrorMessage(
+          "注册成功，但无法自动登录。请确认用户名未被占用，并在 Supabase Auth 设置中关闭 Confirm email。",
+        );
+        return;
+      }
+
+      router.replace("/library");
+      router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       setErrorMessage(
@@ -110,15 +141,15 @@ export default function RegisterPage() {
 
         <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
           <label className="block space-y-2">
-            <span className="text-sm text-[#545a4f]">邮箱</span>
+            <span className="text-sm text-[#545a4f]">用户名</span>
             <Input
-              type="email"
-              name="email"
-              autoComplete="email"
+              type="text"
+              name="username"
+              autoComplete="username"
               required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="请输入用户名（字母、数字、下划线）"
               className="h-10 border-[#d8d2c4] bg-[#fdfbf6]"
             />
           </label>
@@ -147,15 +178,6 @@ export default function RegisterPage() {
             </p>
           ) : null}
 
-          {successMessage ? (
-            <div
-              role="status"
-              className="flex gap-2 rounded-lg border border-[#d2ddcb] bg-[#edf3e8] px-3 py-2 text-sm leading-6 text-[#52664b]"
-            >
-              <MailCheck className="mt-1 size-4 shrink-0" aria-hidden="true" />
-              <span>{successMessage}</span>
-            </div>
-          ) : null}
 
           <Button
             type="submit"
@@ -191,7 +213,7 @@ export default function RegisterPage() {
           慢慢长出你的花园。
         </h2>
         <p className="mt-5 max-w-sm text-sm leading-7 text-[#6e7267]">
-          注册只需要邮箱和密码。完成验证后即可登录；书架和笔记的真实数据能力会在后续阶段接入。
+          注册只需要用户名和密码。用户名仅支持字母、数字和下划线，系统会自动转换为虚拟登录邮箱。
         </p>
         <p className="mt-12 border-t border-[#d4cebf] pt-5 text-xs leading-6 text-[#85877b]">
           注册即表示你同意仅上传自己有权处理的阅读资料，不公开整本版权内容。
