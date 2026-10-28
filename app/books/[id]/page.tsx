@@ -52,6 +52,7 @@ async function BookDetailContent({ params }: BookPageProps) {
       <Button
         variant="ghost"
         className="mb-6 rounded-full text-[#62695e] hover:bg-[#eee9dd]"
+        nativeButton={false}
         render={<Link href="/library" />}
       >
         <ArrowLeft data-icon="inline-start" />

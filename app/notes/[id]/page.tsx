@@ -218,6 +218,7 @@ async function NoteDetailContent({ params }: NotePageProps) {
           <Button
             variant="outline"
             className="w-full rounded-full"
+            nativeButton={false}
             render={<Link href="/community" />}
           >
             浏览更多公开笔记

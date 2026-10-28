@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { BookOpenText, Menu, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/", label: "首页" },
@@ -15,7 +18,86 @@ const navItems = [
 ];
 
 export function NavBar() {
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+
+    supabase.auth
+      .getUser()
+      .then(({ data, error }) => {
+        if (!active) {
+          return;
+        }
+
+        if (error) {
+          setUser(null);
+          return;
+        }
+
+        setUser(data.user);
+      })
+      .catch(() => {
+        if (active) {
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsAuthLoading(false);
+        }
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) {
+        return;
+      }
+
+      setUser(session?.user ?? null);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleSignOut() {
+    setAuthError(null);
+    setIsSigningOut(true);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        setAuthError(`退出登录失败：${error.message}`);
+        return;
+      }
+
+      setUser(null);
+      setMobileOpen(false);
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "退出登录失败，请稍后重试。",
+      );
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
+  const emailPrefix = user?.email?.split("@")[0] ?? "已登录用户";
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#ded8ca]/90 bg-[#faf8f3]/95 backdrop-blur-sm">
@@ -51,8 +133,49 @@ export function NavBar() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <span className="size-2 rounded-full bg-[#8a9a7c]" aria-hidden="true" />
-          <span className="text-sm text-[#6d7167]">演示用户</span>
+          {isAuthLoading ? (
+            <span className="text-xs text-[#8a8c82]">读取登录状态…</span>
+          ) : user ? (
+            <>
+              <span
+                className="size-2 rounded-full bg-[#8a9a7c]"
+                aria-hidden="true"
+              />
+              <span className="max-w-32 truncate text-sm text-[#6d7167]">
+                {emailPrefix}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={isSigningOut}
+                className="rounded-full text-[#825d53] hover:bg-[#f3e9e5]"
+                onClick={handleSignOut}
+              >
+                {isSigningOut ? "退出中…" : "退出登录"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full text-[#5e6659] hover:bg-[#eee9dd]"
+                nativeButton={false}
+                render={<Link href="/login" />}
+              >
+                登录
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full bg-[#68785d] text-white hover:bg-[#5a6a50]"
+                nativeButton={false}
+                render={<Link href="/register" />}
+              >
+                注册
+              </Button>
+            </>
+          )}
         </div>
 
         <Button
@@ -85,11 +208,68 @@ export function NavBar() {
                 {item.label}
               </Link>
             ))}
-            <div className="mt-3 flex items-center gap-2 border-t border-[#e2dccf] px-3 pt-4 text-sm text-[#6d7167]">
-              <span className="size-2 rounded-full bg-[#8a9a7c]" aria-hidden="true" />
-              演示用户
+
+            <div className="mt-3 border-t border-[#e2dccf] px-3 pt-4">
+              {isAuthLoading ? (
+                <p className="text-sm text-[#85877d]">读取登录状态…</p>
+              ) : user ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-sm text-[#5f6659]">
+                    <span
+                      className="size-2 rounded-full bg-[#8a9a7c]"
+                      aria-hidden="true"
+                    />
+                    {emailPrefix}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSigningOut}
+                    className="w-full rounded-full border-[#d9c9c3] text-[#825d53] hover:bg-[#f3e9e5]"
+                    onClick={handleSignOut}
+                  >
+                    {isSigningOut ? "退出中…" : "退出登录"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    nativeButton={false}
+                    render={
+                      <Link href="/login" onClick={() => setMobileOpen(false)} />
+                    }
+                  >
+                    登录
+                  </Button>
+                  <Button
+                    className="rounded-full bg-[#68785d] text-white hover:bg-[#5a6a50]"
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href="/register"
+                        onClick={() => setMobileOpen(false)}
+                      />
+                    }
+                  >
+                    注册
+                  </Button>
+                </div>
+              )}
             </div>
           </nav>
+        </div>
+      ) : null}
+
+      {authError ? (
+        <div className="border-t border-[#e3cfc8] bg-[#f8eeea] px-4 py-2">
+          <p
+            role="alert"
+            className="mx-auto max-w-7xl text-xs text-[#8a574b]"
+          >
+            {authError}
+          </p>
         </div>
       ) : null}
     </header>

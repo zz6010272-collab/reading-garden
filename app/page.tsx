@@ -35,6 +35,7 @@ export default function Home() {
               <Button
                 size="lg"
                 className="h-11 rounded-full bg-[#68785d] px-6 text-white hover:bg-[#5a6a50]"
+                nativeButton={false}
                 render={<Link href="/library" />}
               >
                 进入书房
@@ -44,6 +45,7 @@ export default function Home() {
                 variant="outline"
                 size="lg"
                 className="h-11 rounded-full border-[#cfc8ba] bg-transparent px-6 text-[#4e5549] hover:bg-[#eee9dd]"
+                nativeButton={false}
                 render={<Link href="/community" />}
               >
                 浏览社区
@@ -83,6 +85,7 @@ export default function Home() {
             <Button
               variant="ghost"
               className="rounded-full text-[#596750] hover:bg-[#e9ede3]"
+              nativeButton={false}
               render={<Link href="/community" />}
             >
               查看全部
