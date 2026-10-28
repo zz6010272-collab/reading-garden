@@ -1,17 +1,63 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Clock3 } from "lucide-react";
 
-import { NoteCard, VisibilityBadge } from "@/components/note-card";
+import { connection } from "next/server";
+
 import { PageHeader } from "@/components/page-header";
+import { PublicNoteCard } from "@/components/public-note-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  featuredNotes,
-  formatMockDate,
-  recentNotes,
-} from "@/lib/mock-data";
+  buildNoteWithRelations,
+  createFallbackProfile,
+  NOTE_RELATION_SELECT,
+} from "@/lib/supabase/notes";
+import { createClient } from "@/lib/supabase/server";
+import {
+  formatReadingDate,
+  type NoteRelationRow,
+  type NoteWithRelations,
+  type ProfileRecord,
+} from "@/lib/supabase/types";
 
-export default function Home() {
+export default async function Home() {
+  await connection();
+  const supabase = await createClient();
+  const { data: noteRows, error: notesError } = await supabase
+    .from("notes")
+    .select(NOTE_RELATION_SELECT)
+    .eq("visibility", "public")
+    .order("updated_at", { ascending: false })
+    .limit(8);
+
+  if (notesError) {
+    console.error("Failed to load home notes", notesError);
+    throw new Error("加载公开笔记失败，请稍后重试。");
+  }
+
+  const rows = (noteRows ?? []) as unknown as NoteRelationRow[];
+  const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
+  const profiles = new Map<string, ProfileRecord>();
+
+  if (userIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url, bio, created_at, updated_at")
+      .in("id", userIds);
+
+    ((profileRows ?? []) as ProfileRecord[]).forEach((profile) => {
+      profiles.set(profile.id, profile);
+    });
+  }
+
+  const publicNotes: NoteWithRelations[] = rows.map((row) =>
+    buildNoteWithRelations(
+      row,
+      profiles.get(row.user_id) ?? createFallbackProfile(row.user_id),
+    ),
+  );
+  const featuredNotes = publicNotes.slice(0, 4);
+  const recentNotes = publicNotes.slice(0, 5);
   return (
     <div>
       <section className="border-b border-[#ded8ca]">
@@ -96,7 +142,7 @@ export default function Home() {
 
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           {featuredNotes.map((note) => (
-            <NoteCard key={note.id} note={note} />
+            <PublicNoteCard key={note.id} note={note} />
           ))}
         </div>
 
@@ -122,7 +168,12 @@ export default function Home() {
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <VisibilityBadge visibility={note.visibility} />
+                    <Badge
+                      variant="outline"
+                      className="border-[#d3ddcc] bg-[#e8eee3] text-[#52664b]"
+                    >
+                      公开
+                    </Badge>
                     <span className="text-xs text-[#8a8c81]">
                       {note.author.display_name}
                     </span>
@@ -134,7 +185,7 @@ export default function Home() {
                 <div className="flex shrink-0 items-center gap-1.5 text-xs text-[#8a8c81]">
                   <Clock3 className="size-3.5" aria-hidden="true" />
                   <time dateTime={note.updated_at}>
-                    {formatMockDate(note.updated_at)}
+                    {formatReadingDate(note.updated_at)}
                   </time>
                 </div>
               </Link>

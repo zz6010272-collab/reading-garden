@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
+import { redirect } from "next/navigation"
+import { connection } from "next/server";
 import { Search } from "lucide-react";
 
 import { BookCard } from "@/components/book-card";
@@ -89,6 +90,7 @@ async function LibraryContent({
 }: {
   searchParams: LibrarySearchParams;
 }) {
+  await connection();
   const params = await searchParams;
   const query = readParam(params.q).trim().slice(0, 200);
   const rawStatus = readParam(params.status);
@@ -145,11 +147,21 @@ async function LibraryContent({
         description="按阅读状态整理自己的书，也把每一本书留下的笔记放回它身边。"
         showDemoBadge={false}
         action={
-          <BookFormDialog
-            mode="create"
-            triggerLabel="添加书籍"
-            triggerClassName="h-10 rounded-full bg-[#68785d] px-5 text-white hover:bg-[#5a6a50]"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-10 rounded-full"
+              nativeButton={false}
+              render={<Link href="/write" />}
+            >
+              写笔记
+            </Button>
+            <BookFormDialog
+              mode="create"
+              triggerLabel="添加书籍"
+              triggerClassName="h-10 rounded-full bg-[#68785d] px-5 text-white hover:bg-[#5a6a50]"
+            />
+          </div>
         }
       />
 

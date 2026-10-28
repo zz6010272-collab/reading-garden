@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation"
+import { connection } from "next/server";
 import { ArrowLeft, CalendarDays, FileText, Star } from "lucide-react";
 
 import { BookFormDialog } from "@/components/book-form-dialog";
@@ -38,6 +39,7 @@ export default function BookDetailPage({ params }: BookPageProps) {
 
 async function BookDetailContent({ params }: BookPageProps) {
   const { id } = await params;
+  await connection();
   const supabase = await createClient();
   const {
     data: { user },

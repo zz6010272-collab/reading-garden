@@ -181,3 +181,80 @@
     font-family: var(--font-literary);
   }
 }
+@layer components {
+  .note-prose h1,
+  .note-prose h3,
+  .note-prose h4 {
+    margin-top: 1.6rem;
+    font-family: var(--font-literary);
+    font-weight: 600;
+    line-height: 1.5;
+    color: #30342c;
+  }
+
+  .note-prose h1 {
+    font-size: 1.55rem;
+  }
+
+  .note-prose h3 {
+    font-size: 1.15rem;
+  }
+
+  .note-prose a {
+    color: #52664b;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .note-prose strong {
+    color: #30342c;
+    font-weight: 600;
+  }
+
+  .note-prose code {
+    border-radius: 0.3rem;
+    background: #eee9dd;
+    padding: 0.1rem 0.35rem;
+    font-family: var(--font-ui-mono);
+    font-size: 0.9em;
+  }
+
+  .note-prose pre {
+    margin-top: 1.4rem;
+    overflow-x: auto;
+    border: 1px solid #ddd6c7;
+    border-radius: 0.75rem;
+    background: #f4f0e7;
+    padding: 1rem;
+    line-height: 1.7;
+  }
+
+  .note-prose pre code {
+    background: transparent;
+    padding: 0;
+  }
+
+  .note-prose table {
+    margin-top: 1.4rem;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .note-prose th,
+  .note-prose td {
+    border: 1px solid #ddd6c7;
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+  }
+
+  .note-prose th {
+    background: #f1ede4;
+    font-weight: 600;
+  }
+
+  .note-prose hr {
+    margin: 2rem 0;
+    border-color: #ddd6c7;
+  }
+}
