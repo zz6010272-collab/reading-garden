@@ -45,8 +45,8 @@ Supabase Auth / Postgres + RLS / Private Storage
 | --- | --- | --- | --- | --- |
 | `profiles` | `id`，同时是 `auth.users.id` | `username`、`display_name`、`avatar_url`、`bio`、`visibility`、`created_at`、`updated_at` | `private` 仅本人；`public` 可展示允许字段。主页不连带公开书籍、笔记或阅读记录。 | `id` PK；`username` 唯一；`visibility in ('private','public')`。 |
 | `books` | `owner_id` | `title`、`author`、`book_identifier`、`cover_url`、`description`、`visibility`、`created_at`、`updated_at` | 默认 `private`；`public` 仅公开书籍元数据，不公开附件和阅读记录。 | `(owner_id, book_identifier)` 对非空 `book_identifier` 建唯一索引，用于重复检测。 |
-| `reading_records` | `owner_id` | `book_id`、`status`、`progress_percent`、`started_at`、`finished_at`、`visibility`、`created_at`、`updated_at` | V1 固定 `private`；只有所有者与服务端受控流程可访问。 | `(owner_id, book_id)` 唯一；`progress_percent` 限制在 0–100。 |
-| `notes` | `owner_id` | `book_id`（可空）、`title`、`content`、`visibility`、`unlisted_token`、`source_type`、`source_id`、`created_at`、`updated_at` | `private` 仅所有者；`public` 可进入公开流；`unlisted` 凭 token 访问且不进公共列表。 | `unlisted_token` 全局唯一；`visibility` 限制三种值。 |
+| `reading_records` | `owner_id` | `book_id`、`status`、`progress_percent`、`rating`（smallint，可空，1–5，用户对这本书的个人评分；评分属于个人阅读记录，不属于 `books` 公共元数据）、`started_at`、`finished_at`、`visibility`、`created_at`、`updated_at` | V1 固定 `private`；只有所有者与服务端受控流程可访问。 | `(owner_id, book_id)` 唯一；`progress_percent` 限制在 0–100；`rating` 为空或限制在 1–5。 |
+| `notes` | `owner_id` | `book_id`（可空）、`title`、`content`、`summary`（text，可空，笔记摘要；用于列表卡片和预览，与个人感想 `reflection`、正文 `content` 相互独立）、`visibility`、`unlisted_token`、`source_type`、`source_id`、`created_at`、`updated_at` | `private` 仅所有者；`public` 可进入公开流；`unlisted` 凭 token 访问且不进公共列表。 | `unlisted_token` 全局唯一；`visibility` 限制三种值。 |
 | `note_quotes` | `owner_id`，且所属 `note_id` 必须属于同一所有者 | `note_id`、`quote_text`、`chapter`、`page`、`position`、`created_at` | 继承父笔记可见性；父笔记不可见时引用不可读。 | 通过触发器或策略校验 `owner_id` 与父笔记所有者一致；对 `note_id, position` 建查询索引，不强制唯一。 |
 | `tags` | `owner_id` | `name`、`normalized_name`、`created_at` | 标签属于个人空间；不单独公开，只有关联公开笔记时才随笔记展示。 | `(owner_id, normalized_name)` 唯一。 |
 | `note_tags` | 无独立归属字段，继承 `note_id` 的所有者 | `note_id`、`tag_id`、`created_at` | 继承父笔记可见性。 | 主键或唯一约束 `(note_id, tag_id)`；标签所有者必须与笔记所有者一致。 |
