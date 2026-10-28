@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
-const protectedRoutePrefixes = ["/library", "/write", "/settings"];
+const protectedRoutePrefixes = ["/library", "/write", "/import", "/settings"];
 const authRoutePaths = new Set(["/login", "/register"]);
 
 function isProtectedPath(pathname: string) {
