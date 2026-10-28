@@ -110,14 +110,18 @@ Supabase Auth / Postgres + RLS / Private Storage
 
 ## 6. 微信读书集成边界
 
-以下为已核验的集成边界：
+以下为 2026-10-28 依据腾讯官方 `Tencent/WeChatReading` 仓库和 `https://weread.qq.com/r/weread-skills` 核验的集成边界：
 
 - 官方通过 **Agent Skill + API Gateway** 调用，API Gateway 地址为 `https://i.weread.qq.com/api/agent/gateway`。
-- 鉴权头为 `Authorization: Bearer $WEREAD_API_KEY`，Key 绑定用户身份。
-- 支持书架、笔记划线、阅读统计、书籍搜索等只读能力。
-- 速率限制、Key 有效期、可读取数据范围以官方当前说明为准，当前标注为 **待验证**。
-- API Key 只在服务端使用，不持久化明文，不写入日志、客户端响应、错误信息或分析事件。
-- 未核验的 endpoint、字段或返回结构不得写死；外部服务不可用时必须明确失败，不得伪造成功响应。
+- 请求方法为 `POST`，`Content-Type: application/json`；业务参数必须与 `api_name`、`skill_version` 平铺在 JSON 顶层，不能包进 `params`。
+- 当前实现的官方 Skill 版本为 `1.0.5`；每次请求携带 `skill_version`，若响应出现 `upgrade_info` 必须停止当前操作并提示升级。
+- 鉴权头为 `Authorization: Bearer $WEREAD_API_KEY`，Key 绑定用户身份；Key 只从服务端环境变量读取。
+- 已核验并使用的只读接口：`/shelf/sync`、`/store/search`、`/book/info`、`/book/getprogress`、`/book/bookmarklist`、`/review/list/mine`、`/readdata/detail`。
+- 个人想法/点评接口使用 `synckey` 游标分页；当前实现单次最多读取 10 页（200 条），达到上限会明确标记为未完整同步，不静默截断。
+- 官方公开说明未给出固定速率限制；实现不得自行假设额度，因此书架、书籍导入和统计均由用户主动触发，请求串行执行，并对超时、限流和错误做可读反馈。
+- 可读取数据范围限于 API Key 绑定账号当前可见的书架、书籍元数据、个人划线/想法和阅读统计；不读取整本版权正文。
+- API Key 不在数据库中持久化明文，不写入日志、客户端响应、错误信息或分析事件。
+- 外部服务不可用时必须明确失败并记录失败的 `import_jobs`，不得伪造成功响应。
 
 ## 7. 浏览器扩展边界
 

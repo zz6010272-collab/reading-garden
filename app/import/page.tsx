@@ -2,9 +2,10 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import { ImportCenter } from "@/components/import-center";
+import { ImportHub } from "@/components/import-hub";
 import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
+import { isWereadConfigured } from "@/lib/importers/weread/gateway";
 import { createClient } from "@/lib/supabase/server";
 import type { NoteEditorBook } from "@/components/note-editor-form";
 
@@ -51,7 +52,7 @@ async function ImportContent() {
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <PageHeader
         title="导入中心"
-        description="导入 PDF、TXT 或 Markdown 文件，提取文字并保存为私有阅读笔记。"
+        description="手动导入 PDF、TXT 或 Markdown，或通过官方 Agent Skill 读取微信读书的书籍、划线与阅读统计。"
         showDemoBadge={false}
         action={
           <span className="text-sm text-[#85877d]">
@@ -59,7 +60,7 @@ async function ImportContent() {
           </span>
         }
       />
-      <ImportCenter books={books} />
+      <ImportHub books={books} wereadConfigured={isWereadConfigured()} />
     </div>
   );
 }

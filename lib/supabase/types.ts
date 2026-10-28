@@ -12,6 +12,9 @@ export type BookRecord = {
   title: string;
   author: string | null;
   isbn: string | null;
+  book_identifier?: string | null;
+  source_type?: string | null;
+  source_url?: string | null;
   cover_url: string | null;
   description: string | null;
   created_at: string;
@@ -26,6 +29,7 @@ export type ReadingRecord = {
   rating: number | null;
   started_at: string | null;
   finished_at: string | null;
+  progress_percent?: number | null;
   created_at: string;
 };
 

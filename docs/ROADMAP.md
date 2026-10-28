@@ -6,11 +6,11 @@
 | --- | --- | --- | --- |
 | 0 | 环境初始化与脚手架 | 已完成 | 只初始化工程与开发环境，不写业务 |
 | 1 | 规划文档 AGENTS/PRD/ARCHITECTURE/ROADMAP | 已完成 | 只写文档，不改业务代码 |
-| 2 | UI 框架：9 个页面 + 可复用组件 + mock 数据 | 未开始 | 只使用类型明确的 mock，不接真实数据库 |
-| 3 | Supabase 基础：Auth、Postgres、RLS、私有 Storage | 未开始 | 建立安全底座并验证两名用户隔离 |
-| 4 | 核心读书：书籍、笔记、搜索、公开笔记与互动 | 未开始 | 完成真实数据闭环，不做导入与外部集成 |
-| 5 | 文件导入：PDF、TXT、Markdown | 未开始 | 只做本地文件提取、私有存储与去重 |
-| 6 | 微信读书导入 | 未开始 | 只使用官方 Agent Skill 受控能力，保留手动导入 |
+| 2 | UI 框架：9 个页面 + 可复用组件 + mock 数据 | 已完成 | 只使用类型明确的 mock，不接真实数据库 |
+| 3 | Supabase 基础：Auth、Postgres、RLS、私有 Storage | 已完成 | 建立安全底座并验证两名用户隔离 |
+| 4 | 核心读书：书籍、笔记、搜索、公开笔记与互动 | 已完成 | 完成真实数据闭环，不做导入与外部集成 |
+| 5 | 文件导入：PDF、TXT、Markdown | 已完成 | 只做本地文件提取、私有存储与去重 |
+| 6 | 微信读书导入 | 实现完成，待联调验收 | 只使用官方 Agent Skill 受控能力，保留手动导入 |
 | 7 | Chrome 扩展 | 未开始 | 只做 Manifest V3 主动剪裁与配对鉴权 |
 | 8 | 测试与部署 | 未开始 | 安全检查、上线报告、README 与部署准备 |
 
@@ -214,7 +214,7 @@
 
 不做微信读书导入、OCR、智能摘要、Chrome 扩展或公开原始文件。
 
-## 阶段 6：微信读书导入 —— 官方 Agent Skill 受控导入
+## 阶段 6：微信读书导入 —— 官方 Agent Skill 受控导入（实现完成，待联调验收）
 
 ### 目标
 
@@ -235,6 +235,15 @@
 - 官方当前说明确认 API Gateway 地址、鉴权头、返回结构和只读能力。
 - 速率限制、Key 有效期和可读取数据范围完成核验；核验前保持阻塞。
 - 服务端密钥管理与日志脱敏方案通过检查。
+
+### 2026-10-28 协议核验与实现记录
+
+- 官方来源：`https://weread.qq.com/r/weread-skills`、`https://github.com/Tencent/WeChatReading`。
+- 官方 Skill 版本：`1.0.5`；Gateway：`https://i.weread.qq.com/api/agent/gateway`；请求参数与 `api_name`、`skill_version` 平铺。
+- 已接入 `/shelf/sync`、`/store/search`、`/book/info`、`/book/getprogress`、`/book/bookmarklist`、`/review/list/mine`、`/readdata/detail`。
+- 已实现来源追踪、阅读进度/评分映射、划线/想法导入、统计笔记幂等更新、`import_jobs` 成功/失败状态和 `upgrade_info` 阻断。
+- 官方未公开固定速率限制；当前不假设额度，用户主动触发并串行请求。单次同步的个人想法最多 10 页（200 条），超出会明确提示未完整同步。
+- 阻塞项：本机未配置 `WEREAD_API_KEY`，真实账号联调尚未执行；阶段 6 新迁移需在目标 Supabase 项目执行后才能完成落库验收。
 
 ### 验收门槛
 
