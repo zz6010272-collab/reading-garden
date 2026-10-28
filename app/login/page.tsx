@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, BookOpenText, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserClient } from "@/lib/supabase/client";
+import {
+  AUTH_TIMEOUT_MESSAGE,
+  AuthTimeoutError,
+  withAuthTimeout,
+} from "@/lib/auth/timeout";
 import {
   usernameToVirtualEmail,
   validateUsername,
@@ -53,7 +57,6 @@ function readableSignInError(message: string) {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -73,26 +76,34 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: usernameToVirtualEmail(username),
-        password,
-      });
+      const supabase = createBrowserClient();
+      const { error } = await withAuthTimeout(
+        supabase.auth.signInWithPassword({
+          email: usernameToVirtualEmail(username),
+          password,
+        }),
+      );
 
       if (error) {
         setErrorMessage(readableSignInError(error.message));
         return;
       }
 
-      router.replace("/library");
-      router.refresh();
+      // Full-page navigation intentionally resets the browser auth state after login.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/library";
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      setErrorMessage(
-        isNetworkError(message)
-          ? NETWORK_ERROR_MESSAGE
-          : message || "登录失败，请稍后重试。",
-      );
+
+      if (error instanceof AuthTimeoutError) {
+        setErrorMessage(AUTH_TIMEOUT_MESSAGE);
+      } else {
+        setErrorMessage(
+          isNetworkError(message)
+            ? NETWORK_ERROR_MESSAGE
+            : message || "登录失败，请稍后重试。",
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

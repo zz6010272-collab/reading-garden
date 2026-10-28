@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { BookOpenText, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserClient } from "@/lib/supabase/client";
+import {
+  AUTH_TIMEOUT_MESSAGE,
+  AuthTimeoutError,
+  withAuthTimeout,
+} from "@/lib/auth/timeout";
 import {
   normalizeUsername,
   usernameToVirtualEmail,
@@ -54,7 +58,6 @@ function readableSignUpError(message: string) {
 }
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -76,17 +79,19 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signUp({
-        email: virtualEmail,
-        password,
-        options: {
-          data: {
-            username: normalizedUsername,
-            display_name: normalizedUsername,
+      const supabase = createBrowserClient();
+      const { data, error } = await withAuthTimeout(
+        supabase.auth.signUp({
+          email: virtualEmail,
+          password,
+          options: {
+            data: {
+              username: normalizedUsername,
+              display_name: normalizedUsername,
+            },
           },
-        },
-      });
+        }),
+      );
 
       if (error) {
         setErrorMessage(readableSignUpError(error.message));
@@ -94,16 +99,18 @@ export default function RegisterPage() {
       }
 
       if (data.session) {
-        router.replace("/library");
-        router.refresh();
+        // Full-page navigation intentionally resets the browser auth state after signup.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = "/library";
         return;
       }
 
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await withAuthTimeout(
+        supabase.auth.signInWithPassword({
           email: virtualEmail,
           password,
-        });
+        }),
+      );
 
       if (signInError || !signInData.session) {
         setErrorMessage(
@@ -112,15 +119,21 @@ export default function RegisterPage() {
         return;
       }
 
-      router.replace("/library");
-      router.refresh();
+      // Full-page navigation intentionally resets the browser auth state after signup.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/library";
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      setErrorMessage(
-        isNetworkError(message)
-          ? NETWORK_ERROR_MESSAGE
-          : message || "注册失败，请稍后重试。",
-      );
+
+      if (error instanceof AuthTimeoutError) {
+        setErrorMessage(AUTH_TIMEOUT_MESSAGE);
+      } else {
+        setErrorMessage(
+          isNetworkError(message)
+            ? NETWORK_ERROR_MESSAGE
+            : message || "注册失败，请稍后重试。",
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
