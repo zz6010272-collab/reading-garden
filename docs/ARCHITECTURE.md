@@ -95,7 +95,7 @@ Supabase Auth / Postgres + RLS / Private Storage
 
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
-| `source_type` | 是 | `pdf`、`txt`、`markdown`、`weread`、`browser_extension` 等来源类型。 |
+| `source_type` | 是 | `pdf`、`text`、`markdown`、`weread`、`extension` 等来源类型。 |
 | `source_id` | 视来源而定 | 来源侧稳定标识；本地文件可使用内容哈希。 |
 | `title` | 是 | 书籍或原始文档标题。 |
 | `author` | 否 | 作者信息。 |
@@ -125,12 +125,15 @@ Supabase Auth / Postgres + RLS / Private Storage
 
 ## 7. 浏览器扩展边界
 
-- 使用 Chrome Manifest V3。
-- 仅声明 `activeTab`、`scripting`、`storage` 权限。
-- 用户必须在当前页面主动选择内容并确认剪裁；导入的是用户主动选择的片段，不抓取全文。
+- 使用 Chrome Manifest V3，基础权限仅为 `activeTab`、`scripting`、`storage`；本地应用域名作为 `host_permissions`，生产 HTTPS 域名使用用户按需授权的 `optional_host_permissions`。
+- 用户必须在当前页面主动选择内容并确认剪裁；扩展只在用户点击后执行一次选区读取，不抓取全文。
 - 不读取 Cookie、浏览历史、登录凭证或未激活标签页内容。
-- 配对 token 与用户会话分离，服务端验证扩展配对状态；token 不进入日志或公开构建产物。
-- 扩展只负责采集与提交用户选择的内容，权限判断、数据校验和落库仍由服务端完成。
+- 配对 token 与用户会话分离；数据库仅保存 token 的 SHA-256 哈希，明文只在生成时向用户展示一次。
+- `extension_tokens` 启用 RLS，用户只能读取、创建和撤销自己的配对记录；Token 哈希、所属用户和创建时间不可修改。
+- 扩展提交走 `POST /api/extension/imports`，不使用 Cookie 会话。API 校验 Bearer Token、CORS 来源、JSON 字段和内容长度后，调用 `verify_and_create_clip` RPC。
+- RPC 使用 `SECURITY DEFINER`、固定空 `search_path`，验证未撤销 Token 后创建默认 `private`、`source_type = extension`、`source_id = URL` 的笔记；不依赖 `SUPABASE_SERVICE_ROLE_KEY`。
+- 同一 URL 可以产生多条独立摘录；文件导入和微信读书仍保留来源去重约束。
+- 扩展只负责采集与提交用户选择的内容，所有权、可见性、URL、长度和落库校验仍由服务端完成。
 
 ## 8. 服务端边界与错误处理
 

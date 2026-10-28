@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>拾页网页摘录</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">READING GARDEN</p>
+        <h1>拾页网页摘录</h1>
+      </div>
+      <span class="privacy-dot" title="只读取你主动选择的内容"></span>
+    </header>
+
+    <main>
+      <section id="pairing-view" class="panel" hidden>
+        <h2>连接你的拾页账户</h2>
+        <p class="hint">
+          在拾页「设置 → 浏览器扩展配对」中生成配对码，然后粘贴到这里。配对码只会保存在此扩展的本地存储中。
+        </p>
+
+        <label class="field">
+          <span>拾页服务地址</span>
+          <input id="app-origin" type="url" value="http://localhost:3000" spellcheck="false" />
+        </label>
+
+        <label class="field">
+          <span>扩展配对码</span>
+          <input
+            id="pairing-token"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="64 位十六进制配对码"
+          />
+        </label>
+
+        <button id="save-pairing" class="primary-button" type="button">
+          保存并连接
+        </button>
+        <p id="pairing-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="clip-view" class="panel" hidden>
+        <div class="account-row">
+          <span class="connected-badge">已配对</span>
+          <button id="unpair" class="text-button" type="button">解除配对</button>
+        </div>
+
+        <button id="capture-selection" class="capture-button" type="button">
+          读取当前标签页选区
+        </button>
+        <p id="selection-status" class="hint" role="status" aria-live="polite">
+          仅在你点击按钮后读取当前标签页，不会自动抓取页面。
+        </p>
+
+        <label class="field">
+          <span>笔记标题</span>
+          <input id="clip-title" type="text" maxlength="200" placeholder="网页标题" />
+        </label>
+
+        <label class="field">
+          <span>选中的文字</span>
+          <textarea id="clip-content" rows="7" readonly placeholder="尚未读取选区"></textarea>
+        </label>
+
+        <label class="field">
+          <span>个人感想（可选）</span>
+          <textarea
+            id="clip-reflection"
+            rows="4"
+            maxlength="20000"
+            placeholder="为什么这段话值得留下？"
+          ></textarea>
+        </label>
+
+        <button id="submit-clip" class="primary-button" type="button" disabled>
+          保存为私密笔记
+        </button>
+        <p id="submit-status" class="status" role="status" aria-live="polite"></p>
+        <a id="open-note" class="note-link" href="#" target="_blank" rel="noreferrer" hidden>
+          查看已保存的笔记
+        </a>
+      </section>
+    </main>
+
+    <footer>
+      <p>不会读取 Cookie、历史记录或未激活标签页，也不会自动抓取全文。</p>
+    </footer>
+
+    <script src="popup.js" defer></script>
+  </body>
+</html>

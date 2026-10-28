@@ -1,6 +1,6 @@
 # 拾页 / Reading Garden
 
-个人阅读知识库 + 轻量读书社区。当前已完成阶段 0–5，并实现阶段 6 的微信读书官方 Agent Skill 导入，等待真实账号联调验收。
+个人阅读知识库 + 轻量读书社区。阶段 0–7 已完成，当前进入阶段 8 的全项目安全测试与上线准备。
 
 ## 技术栈
 
@@ -26,6 +26,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 
 # 仅服务端使用，禁止添加 NEXT_PUBLIC_ 前缀
 WEREAD_API_KEY=
+
+# 生产环境：允许调用扩展 API 的 chrome-extension:// 来源
+EXTENSION_ALLOWED_ORIGINS=
 ```
 
 `WEREAD_API_KEY` 从 [微信读书 Skill 官方页面](https://weread.qq.com/r/weread-skills) 获取。Key 绑定用户身份，不写入数据库、不进入客户端包、不写入日志。
@@ -47,8 +50,9 @@ npm run dev
 2. `supabase/migrations/20261028_000001_enable_rls_and_policies.sql`
 3. `supabase/migrations/20261028_000002_add_private_files_content_hash.sql`
 4. `supabase/migrations/20261028_000003_add_weread_import_metadata.sql`
+5. `supabase/migrations/20261028_000004_add_extension_pairing.sql`
 
-阶段 6 迁移新增书籍来源标识、笔记来源 URL、导入去重索引和阅读进度字段；原有 RLS 策略继续生效。
+阶段 6 迁移新增微信读书来源字段；阶段 7 迁移新增扩展配对表、RLS、Token 校验 RPC，并调整来源去重索引以支持同一网页多次摘录。
 
 ## 微信读书导入
 
@@ -65,6 +69,18 @@ npm run dev
 - **微信读书**：读取书架、搜索电子书、导入书籍/进度/划线/个人想法，并将阅读统计保存为私密笔记。
 
 外部服务失败、Key 缺失/失效、限流、响应超时或协议升级时，界面显示真实错误，不伪造成功。个人想法同步单次最多读取 10 页（200 条），达到上限会明确提示。
+
+## Chrome 网页摘录扩展
+
+`browser-extension/` 提供 Manifest V3 扩展：
+
+- 仅在用户点击后读取当前标签页选区。
+- 展示选区并要求用户确认后提交。
+- 不读取 Cookie、历史记录、登录凭证或未激活标签页。
+- 配对码采用 32 字节随机值，数据库只保存 SHA-256 哈希。
+- 服务端通过 `verify_and_create_clip` SECURITY DEFINER RPC 创建私密笔记，不使用 `SUPABASE_SERVICE_ROLE_KEY`。
+
+加载步骤和完整测试流程见 `browser-extension/README.md`。生产环境需要把安装后的 `chrome-extension://...` 来源写入 `EXTENSION_ALLOWED_ORIGINS`。
 
 ## 检查命令
 

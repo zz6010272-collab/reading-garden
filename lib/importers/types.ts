@@ -4,6 +4,7 @@ export const importSourceTypes = [
   "markdown",
   "weread",
   "browser_extension",
+  "extension",
 ] as const;
 
 export type ImportSourceType = (typeof importSourceTypes)[number];
