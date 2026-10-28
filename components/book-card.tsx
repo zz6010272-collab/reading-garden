@@ -1,32 +1,31 @@
 import Link from "next/link";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   readingStatusLabels,
-  type Book,
+  type BookRecord,
   type ReadingRecord,
   type ReadingStatus,
-} from "@/lib/mock-data";
+} from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
 const statusClassNames: Record<ReadingStatus, string> = {
   want_to_read: "bg-[#eee8dc] text-[#746650]",
   reading: "bg-[#e4ebdf] text-[#52644a]",
   finished: "bg-[#e8e6df] text-[#66645c]",
-  paused: "bg-[#f0e4d8] text-[#856b50]",
-  abandoned: "bg-[#ece4e2] text-[#83615b]",
 };
 
 type BookCardProps = {
-  book: Book;
+  book: BookRecord;
   readingRecord?: ReadingRecord | null;
   className?: string;
 };
 
 export function BookCard({ book, readingRecord, className }: BookCardProps) {
   const status = readingRecord?.status;
+  const hasCover = Boolean(book.cover_url);
 
   return (
     <Link
@@ -40,12 +39,27 @@ export function BookCard({ book, readingRecord, className }: BookCardProps) {
         )}
       >
         <div className="relative flex aspect-[4/5] flex-col justify-between overflow-hidden border-b border-[#ddd6c7] bg-[#e9e3d5] p-5">
+          {book.cover_url ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${JSON.stringify(book.cover_url)})` }}
+              aria-hidden="true"
+            />
+          ) : null}
+          {hasCover ? (
+            <div className="absolute inset-x-0 bottom-0 h-2/5 bg-[#20231e]/55" aria-hidden="true" />
+          ) : null}
           <div
             className="absolute inset-y-0 left-4 w-px bg-[#c8c0ae]/80"
             aria-hidden="true"
           />
           <div className="relative flex items-start justify-between gap-3">
-            <span className="text-[10px] tracking-[0.22em] text-[#77786d]">
+            <span
+              className={cn(
+                "text-[10px] tracking-[0.22em]",
+                hasCover ? "text-white/80" : "text-[#77786d]",
+              )}
+            >
               READING GARDEN
             </span>
             {status ? (
@@ -59,16 +73,24 @@ export function BookCard({ book, readingRecord, className }: BookCardProps) {
               </Badge>
             ) : null}
           </div>
-          <div className="relative">
-            <p className="font-serif text-2xl font-semibold leading-tight text-[#33362e]">
+          <div className={cn("relative", hasCover && "text-white")}>
+            <p className="font-serif text-2xl font-semibold leading-tight">
               {book.title}
             </p>
-            <p className="mt-2 text-xs tracking-[0.12em] text-[#747769]">
-              {book.author}
+            <p
+              className={cn(
+                "mt-2 text-xs tracking-[0.12em]",
+                hasCover ? "text-white/80" : "text-[#747769]",
+              )}
+            >
+              {book.author ?? "未填写作者"}
             </p>
           </div>
           <div
-            className="absolute bottom-5 right-5 text-[#a29c8d]"
+            className={cn(
+              "absolute bottom-5 right-5",
+              hasCover ? "text-white/70" : "text-[#a29c8d]",
+            )}
             aria-hidden="true"
           >
             <BookOpen className="size-5" />
@@ -77,27 +99,20 @@ export function BookCard({ book, readingRecord, className }: BookCardProps) {
 
         <div className="space-y-3 p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-[#666b60]">{book.author}</p>
-            {book.visibility === "private" ? (
-              <span className="text-[11px] text-[#8d8476]">私密书架</span>
-            ) : null}
+            <p className="truncate text-sm text-[#666b60]">
+              {book.author ?? "未填写作者"}
+            </p>
+            <span className="shrink-0 text-[11px] text-[#8d8476]">我的藏书</span>
           </div>
-          {readingRecord?.status === "reading" ? (
-            <div>
-              <div className="mb-1.5 flex items-center justify-between text-[11px] text-[#7a7d72]">
-                <span>阅读进度</span>
-                <span>{readingRecord.progress_percent}%</span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-[#e8e3d8]">
-                <div
-                  className="h-full rounded-full bg-[#7c8d70]"
-                  style={{ width: `${readingRecord.progress_percent}%` }}
-                />
-              </div>
-            </div>
+
+          {readingRecord?.rating ? (
+            <p className="flex items-center gap-1 text-xs text-[#8f7654]">
+              <Star className="size-3.5 fill-current" aria-hidden="true" />
+              个人评分 {readingRecord.rating} / 5
+            </p>
           ) : (
             <p className="line-clamp-2 text-xs leading-5 text-[#85877d]">
-              {book.description}
+              {book.description || "还没有填写书籍简介。"}
             </p>
           )}
         </div>

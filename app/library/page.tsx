@@ -1,121 +1,216 @@
-"use client";
-
-import { useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { Search } from "lucide-react";
 
 import { BookCard } from "@/components/book-card";
+import { BookFormDialog } from "@/components/book-form-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { createClient } from "@/lib/supabase/server";
 import {
-  booksWithReading,
-  currentDemoUserId,
+  readingStatusLabels,
+  readingStatusOptions,
+  readingStatusValues,
+  type BookRecord,
+  type BookWithReading,
+  type ReadingRecord,
   type ReadingStatus,
-} from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
+} from "@/lib/supabase/types";
 
-type LibraryFilter = "all" | Extract<ReadingStatus, "want_to_read" | "reading" | "finished">;
+type LibrarySearchParams = Promise<{
+  q?: string | string[];
+  status?: string | string[];
+}>;
 
-const filters: { value: LibraryFilter; label: string }[] = [
-  { value: "all", label: "全部" },
-  { value: "want_to_read", label: "想读" },
-  { value: "reading", label: "在读" },
-  { value: "finished", label: "已读" },
-];
+type LibraryBookRow = BookRecord & {
+  reading_records: ReadingRecord[] | ReadingRecord | null;
+};
 
-export default function LibraryPage() {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<LibraryFilter>("all");
-  const [dialogOpen, setDialogOpen] = useState(false);
+const BOOK_SELECT = `
+  id,
+  owner_id,
+  title,
+  author,
+  isbn,
+  cover_url,
+  description,
+  created_at,
+  updated_at,
+  reading_records!inner (
+    id,
+    user_id,
+    book_id,
+    status,
+    rating,
+    started_at,
+    finished_at,
+    created_at
+  )
+`;
 
-  const myBooks = useMemo(
-    () =>
-      booksWithReading.filter((book) => book.owner_id === currentDemoUserId),
-    [],
+function readParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+function normalizeReadingRecord(
+  value: LibraryBookRow["reading_records"],
+): ReadingRecord | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
+
+export default function LibraryPage({
+  searchParams,
+}: {
+  searchParams: LibrarySearchParams;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <LoadingState cards={8} label="正在整理你的书房…" />
+        </div>
+      }
+    >
+      <LibraryContent searchParams={searchParams} />
+    </Suspense>
   );
+}
 
-  const filteredBooks = useMemo(() => {
-    const keyword = query.trim().toLocaleLowerCase("zh-CN");
+async function LibraryContent({
+  searchParams,
+}: {
+  searchParams: LibrarySearchParams;
+}) {
+  const params = await searchParams;
+  const query = readParam(params.q).trim().slice(0, 200);
+  const rawStatus = readParam(params.status);
+  const status = readingStatusValues.includes(rawStatus as ReadingStatus)
+    ? (rawStatus as ReadingStatus)
+    : undefined;
+  const hasFilters = Boolean(query) || Boolean(status);
 
-    return myBooks.filter((book) => {
-      const matchesStatus =
-        status === "all" || book.reading_record?.status === status;
-      const matchesQuery =
-        keyword.length === 0 ||
-        book.title.toLocaleLowerCase("zh-CN").includes(keyword) ||
-        book.author.toLocaleLowerCase("zh-CN").includes(keyword);
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-      return matchesStatus && matchesQuery;
-    });
-  }, [myBooks, query, status]);
+  if (userError || !user) {
+    redirect("/login");
+  }
+
+  let booksQuery = supabase
+    .from("books")
+    .select(BOOK_SELECT)
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (query) {
+    booksQuery = booksQuery.ilike("title", `%${query}%`);
+  }
+
+  if (status) {
+    booksQuery = booksQuery.eq("reading_records.status", status);
+  }
+
+  const { data, error } = await booksQuery;
+
+  if (error) {
+    console.error("Failed to load library books", error);
+    throw new Error("加载书房失败，请稍后重试。");
+  }
+
+  const rows = (data ?? []) as unknown as LibraryBookRow[];
+  const books: BookWithReading[] = rows.map((row) => {
+    const { reading_records, ...book } = row;
+
+    return {
+      ...book,
+      reading_record: normalizeReadingRecord(reading_records),
+    };
+  });
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <PageHeader
         title="我的书房"
         description="按阅读状态整理自己的书，也把每一本书留下的笔记放回它身边。"
+        showDemoBadge={false}
         action={
-          <Button
-            type="button"
-            size="lg"
-            className="h-10 rounded-full bg-[#68785d] px-5 text-white hover:bg-[#5a6a50]"
-            onClick={() => setDialogOpen(true)}
-          >
-            <Plus data-icon="inline-start" />
-            添加书籍
-          </Button>
+          <BookFormDialog
+            mode="create"
+            triggerLabel="添加书籍"
+            triggerClassName="h-10 rounded-full bg-[#68785d] px-5 text-white hover:bg-[#5a6a50]"
+          />
         }
       />
 
-      <div className="mt-8 flex flex-col gap-4 border-b border-[#e5dfd3] pb-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2" aria-label="阅读状态筛选">
-          {filters.map((filter) => (
-            <Button
-              key={filter.value}
-              type="button"
-              variant={status === filter.value ? "default" : "ghost"}
-              className={cn(
-                "rounded-full",
-                status === filter.value
-                  ? "bg-[#68785d] text-white hover:bg-[#5a6a50]"
-                  : "text-[#666b60] hover:bg-[#eee9dd]",
-              )}
-              onClick={() => setStatus(filter.value)}
-            >
-              {filter.label}
-            </Button>
-          ))}
-        </div>
-
-        <label className="relative block w-full lg:max-w-xs">
-          <span className="sr-only">搜索书名或作者</span>
+      <form
+        method="get"
+        className="mt-8 flex flex-col gap-3 border-b border-[#e5dfd3] pb-6 md:flex-row md:items-center"
+      >
+        <label className="relative block flex-1">
+          <span className="sr-only">搜索书名</span>
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8a8d82]"
             aria-hidden="true"
           />
           <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索书名或作者"
+            name="q"
+            defaultValue={query}
+            maxLength={200}
+            placeholder="搜索书名"
             className="h-10 rounded-full border-[#d8d2c4] bg-[#fffdf8] pl-9 text-[#454a40] placeholder:text-[#9a9b91]"
           />
         </label>
-      </div>
 
-      {/* TODO(stage 3): 使用真实数据源后补充加载失败与重试状态。 */}
-      {filteredBooks.length > 0 ? (
+        <label className="block md:w-44">
+          <span className="sr-only">阅读状态</span>
+          <select
+            name="status"
+            defaultValue={status ?? "all"}
+            className="h-10 w-full rounded-full border border-[#d8d2c4] bg-[#fffdf8] px-4 text-sm text-[#4f554a] outline-none focus-visible:border-[#87967b] focus-visible:ring-3 focus-visible:ring-[#87967b]/30"
+          >
+            <option value="all">全部状态</option>
+            {readingStatusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {readingStatusLabels[option.value]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex gap-2">
+          <Button
+            type="submit"
+            className="rounded-full bg-[#68785d] text-white hover:bg-[#5a6a50]"
+          >
+            筛选
+          </Button>
+          {hasFilters ? (
+            <Button
+              variant="outline"
+              className="rounded-full"
+              nativeButton={false}
+              render={<Link href="/library" />}
+            >
+              清除
+            </Button>
+          ) : null}
+        </div>
+      </form>
+
+      {books.length > 0 ? (
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredBooks.map((book) => (
+          {books.map((book) => (
             <BookCard
               key={book.id}
               book={book}
@@ -123,69 +218,36 @@ export default function LibraryPage() {
             />
           ))}
         </div>
-      ) : (
+      ) : hasFilters ? (
         <EmptyState
           className="mt-8"
           title="没有找到符合条件的书"
-          description="换一个关键词，或切换到其他阅读状态看看。也可以先把想读的书放进书房。"
+          description="换一个书名关键词，或切换到其他阅读状态看看。"
           action={
             <Button
-              type="button"
-              className="rounded-full bg-[#68785d] text-white hover:bg-[#5a6a50]"
-              onClick={() => setDialogOpen(true)}
+              variant="outline"
+              className="rounded-full"
+              nativeButton={false}
+              render={<Link href="/library" />}
             >
-              <Plus data-icon="inline-start" />
-              添加书籍
+              清除筛选
             </Button>
           }
         />
+      ) : (
+        <EmptyState
+          className="mt-8"
+          title="书房还是空的"
+          description="从你正在读或想读的第一本书开始，建立自己的阅读花园。"
+          action={
+            <BookFormDialog
+              mode="create"
+              triggerLabel="添加第一本书"
+              triggerClassName="rounded-full bg-[#68785d] text-white hover:bg-[#5a6a50]"
+            />
+          }
+        />
       )}
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="border border-[#ded8ca] bg-[#fffdf8] sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-xl text-[#30342c]">
-              添加一本书
-            </DialogTitle>
-            <DialogDescription>
-              这是界面占位表单，不会提交或保存真实数据。
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <label className="block space-y-2 text-sm text-[#5f6459]">
-              <span>书名</span>
-              <Input placeholder="例如：额尔古纳河右岸" />
-            </label>
-            <label className="block space-y-2 text-sm text-[#5f6459]">
-              <span>作者</span>
-              <Input placeholder="例如：迟子建" />
-            </label>
-            <label className="block space-y-2 text-sm text-[#5f6459]">
-              <span>简介</span>
-              <Textarea placeholder="写一句为什么想读它" className="min-h-24" />
-            </label>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              onClick={() => setDialogOpen(false)}
-            >
-              关闭
-            </Button>
-            <Button
-              type="button"
-              className="rounded-full bg-[#68785d] text-white hover:bg-[#5a6a50]"
-              onClick={() => setDialogOpen(false)}
-            >
-              保存占位
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

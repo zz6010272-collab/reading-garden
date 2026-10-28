@@ -8,6 +8,7 @@ type PageHeaderProps = {
   description: string;
   action?: ReactNode;
   className?: string;
+  showDemoBadge?: boolean;
 };
 
 export function DemoDataBadge() {
@@ -26,6 +27,7 @@ export function PageHeader({
   description,
   action,
   className,
+  showDemoBadge = true,
 }: PageHeaderProps) {
   return (
     <header
@@ -35,7 +37,7 @@ export function PageHeader({
       )}
     >
       <div className="max-w-2xl">
-        <DemoDataBadge />
+        {showDemoBadge ? <DemoDataBadge /> : null}
         <h1 className="mt-3 font-serif text-3xl font-semibold tracking-tight text-[#2f332b] sm:text-4xl">
           {title}
         </h1>
