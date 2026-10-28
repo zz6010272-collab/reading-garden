@@ -50,3 +50,6 @@ node_modules/
 
 # commit the variable template
 !.env.example
+
+# security test configuration template
+!.env.security.example

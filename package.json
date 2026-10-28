@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import jiti/register --test tests/*.test.ts"
+    "test": "node --import jiti/register --test tests/*.test.ts",
+    "security:scan": "node scripts/security-scan.mjs",
+    "security:test": "node --import jiti/register scripts/security-isolation.ts",
+    "security:all": "node scripts/security-scan.mjs && node --import jiti/register scripts/security-isolation.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
